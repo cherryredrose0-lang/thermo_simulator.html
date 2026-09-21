@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thermodynamics Particle Simulator</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0f172a;
+            color: #f8fafc;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            background: #1e293b;
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            max-width: 720px;
+            width: 100%;
+            text-align: center;
+        }
+        .badge {
+            background: #334155;
+            color: #38bdf8;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            display: inline-block;
+            margin-bottom: 15px;
+            letter-spacing: 1px;
+        }
+        h2 { margin-top: 0; color: #f1f5f9; }
+        .controls {
+            margin: 15px 0;
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+        }
+        button {
+            background: #334155;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 1rem;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        button.active.exo { background: #ef4444; }
+        button.active.endo { background: #3b82f6; }
+
+        .slider-group {
+            margin: 20px 0;
+            text-align: left;
+            background: #0f172a;
+            padding: 15px;
+            border-radius: 10px;
+        }
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #cbd5e1;
+        }
+        input[type=range] {
+            width: 100%;
+            cursor: pointer;
+        }
+        .status-box {
+            font-size: 1.05rem;
+            margin: 15px 0;
+            padding: 12px;
+            background: #334155;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+        canvas {
+            background: #090d16;
+            border-radius: 10px;
+            display: block;
+            margin: 0 auto;
+            border: 2px solid #334155;
+        }
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 12px;
+            font-size: 0.85rem;
+            color: #94a3b8;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="badge">🔬 DIGITAL MODEL / SIMULATION</div>
+    <h2>Energy Transfer Particle Simulator</h2>
+
+    <div class="controls">
+        <button id="exoBtn" class="active exo" onclick="setProcess('exothermic')">🔥 Exothermic Process</button>
+        <button id="endoBtn" onclick="setProcess('endothermic')">❄️ Endothermic Process</button>
+    </div>
+
+    <div class="slider-group">
+        <label>Reaction Progress / Energy Slider: <span id="intensityVal" style="color: #ef4444;">1</span></label>
+        <input type="range" id="intensityRange" min="1" max="10" value="1" step="1">
+    </div>
+
+    <div class="status-box" id="statusText">
+        Exothermic Mode: System loses energy; Surroundings warm up.
+    </div>
+
+    <canvas id="simCanvas" width="660" height="280"></canvas>
+    
+    <div class="legend">
+        <span style="color: #3b82f6;">🔵 Cool / Slow</span>
+        <span style="color: #a855f7;">🟣 Medium</span>
+        <span style="color: #ef4444;">🔴 Hot / Fast</span>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    const statusText = document.getElementById('statusText');
+    const exoBtn = document.getElementById('exoBtn');
+    const endoBtn = document.getElementById('endoBtn');
+    const intensityRange = document.getElementById('intensityRange');
+    const intensityVal = document.getElementById('intensityVal');
+
+    let currentProcess = 'exothermic';
+
+    // System particles (inside flask)
+    let systemParticles = [];
+    for (let i = 0; i < 15; i++) {
+        systemParticles.push({
+            x: Math.random() * 200 + 50,
+            y: Math.random() * 160 + 60,
+            vx: (Math.random() - 0.5) * 3,
+            vy: (Math.random() - 0.5) * 3,
+            radius: 8
+        });
+    }
+
+    // Surrounding particles (outside flask)
+    let surroundingParticles = [];
+    for (let i = 0; i < 20; i++) {
+        surroundingParticles.push({
+            x: Math.random() * 240 + 380,
+            y: Math.random() * 200 + 50,
+            vx: (Math.random() - 0.5) * 2,
+            vy: (Math.random() - 0.5) * 2,
+            radius: 6
+        });
+    }
+
+    function setProcess(process) {
+        currentProcess = process;
+        intensityRange.value = 1;
+        intensityVal.innerText = "1";
+
+        if (process === 'exothermic') {
+            exoBtn.className = 'active exo';
+            endoBtn.className = '';
+            intensityVal.style.color = '#ef4444';
+            statusText.style.color = '#fca5a5';
+        } else {
+            endoBtn.className = 'active endo';
+            exoBtn.className = '';
+            intensityVal.style.color = '#38bdf8';
+            statusText.style.color = '#7dd3fc';
+        }
+        updateStatusText();
+    }
+
+    function updateStatusText() {
+        let val = intensityRange.value;
+        if (currentProcess === 'exothermic') {
+            statusText.innerHTML = `Exothermic Mode: System ☕ loses energy; Surroundings ༄☁️° warm up!`;
+        } else {
+            statusText.innerHTML = `Endothermic Mode: System 🍰 absorbs energy; Surroundings 🎛️ ♨️ cool down!`;
+        }
+    }
+
+    intensityRange.addEventListener('input', () => {
+        intensityVal.innerText = intensityRange.value;
+        updateStatusText();
+    });
+
+    // Color mapper from Blue (0) to Red (1)
+    function getColor(progress) {
+        let r = Math.floor(59 + (239 - 59) * progress);
+        let g = Math.floor(130 + (68 - 130) * progress);
+        let b = Math.floor(246 + (68 - 246) * progress);
+        return `rgb(${r}, ${g}, ${b})`;
+    }
+
+    function animate() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        let intensity = parseInt(intensityRange.value);
+        let progress = (intensity - 1) / 9; // 0.0 to 1.0
+
+        // 1. Draw System Boundary (Left Side)
+        ctx.strokeStyle = '#475569';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(30, 40, 260, 210);
+
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '12px sans-serif';
+        if (currentProcess === 'exothermic') {
+            ctx.fillText("☕ SYSTEM (Coffee Cup)", 40, 60);
+        } else {
+            ctx.fillText("🍰 SYSTEM (Cake)", 40, 60);
+        }
+
+        // 2. Draw Surroundings Area (Right Side)
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(340, 40, 290, 210);
+
+        ctx.fillStyle = '#94a3b8';
+        if (currentProcess === 'exothermic') {
+            ctx.fillText("༄☁️° SURROUNDINGS (Air)", 350, 60);
+        } else {
+            ctx.fillText("🎛️ ♨️ SURROUNDINGS (Heat Source)", 350, 60);
+        }
+
+        if (currentProcess === 'exothermic') {
+            // EXOTHERMIC: System (☕) loses energy (hot -> cool). Surroundings (༄☁️°) start cool and warm up.
+            let sysProgress = 1 - progress; 
+            let sysSpeed = Math.max(0.6, 3.5 * sysProgress + 0.5);
+            let sysColor = getColor(sysProgress);
+
+            let surrSpeed = 1.0 + (progress * 2.5);
+            let surrColor = getColor(progress);
+
+            systemParticles.forEach(p => {
+                p.vx = Math.sign(p.vx) * sysSpeed;
+                p.vy = Math.sign(p.vy) * sysSpeed;
+                p.x += p.vx; p.y += p.vy;
+                if (p.x < 40 || p.x > 280) p.vx *= -1;
+                if (p.y < 70 || p.y > 240) p.vy *= -1;
+
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                ctx.fillStyle = sysColor;
+                ctx.fill();
+            });
+
+            surroundingParticles.forEach(p => {
+                p.vx = Math.sign(p.vx) * surrSpeed;
+                p.vy = Math.sign(p.vy) * surrSpeed;
+                p.x += p.vx; p.y += p.vy;
+                if (p.x < 350 || p.x > 620) p.vx *= -1;
+                if (p.y < 70 || p.y > 240) p.vy *= -1;
+
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                ctx.fillStyle = surrColor;
+                ctx.fill();
+            });
+
+            ctx.font = '18px sans-serif';
+            let time = Date.now() * 0.006;
+            ctx.fillText("🔥", 305 + Math.sin(time) * 6, 140);
+
+        } else {
+            // ENDOTHERMIC: System (🍰) starts cool (blue) and gets warm (red). Surroundings (🎛️ ♨️) start warm and get cool (blue).
+            let sysProgress = progress; 
+            let sysSpeed = Math.max(0.6, 3.5 * sysProgress + 0.5);
+            let sysColor = getColor(sysProgress);
+
+            let surrProgress = 1 - progress; 
+            let surrSpeed = Math.max(0.8, 3.5 * surrProgress + 0.5);
+            let surrColor = getColor(surrProgress);
+
+            systemParticles.forEach(p => {
+                p.vx = Math.sign(p.vx) * sysSpeed;
+                p.vy = Math.sign(p.vy) * sysSpeed;
+                p.x += p.vx; p.y += p.vy;
+                if (p.x < 40 || p.x > 280) p.vx *= -1;
+                if (p.y < 70 || p.y > 240) p.vy *= -1;
+
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                ctx.fillStyle = sysColor;
+                ctx.fill();
+            });
+
+            surroundingParticles.forEach(p => {
+                p.vx = Math.sign(p.vx) * surrSpeed;
+                p.vy = Math.sign(p.vy) * surrSpeed;
+                p.x += p.vx; p.y += p.vy;
+                if (p.x < 350 || p.x > 620) p.vx *= -1;
+                if (p.y < 70 || p.y > 240) p.vy *= -1;
+
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                ctx.fillStyle = surrColor;
+                ctx.fill();
+            });
+
+            ctx.font = '18px sans-serif';
+            let time = Date.now() * 0.006;
+            ctx.fillText("❄️", 305 + Math.sin(time) * 6, 140);
+        }
+
+        requestAnimationFrame(animate);
+    }
+
+    updateStatusText();
+    animate();
+</script>
+
+</body>
+</html>
