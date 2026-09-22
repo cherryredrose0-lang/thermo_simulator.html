@@ -1,1 +1,1 @@
-# thermo_simulator.html
+# thermo_simulator
